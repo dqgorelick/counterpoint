@@ -1,3 +1,9 @@
+/*
+flags
+*/
+var SHIFT = false;
+var MARKER = true;
+
 (function() {
   var renderer = PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight, {
     antialias: true,
@@ -36,12 +42,41 @@
 
   var line = [];
   var marker = new PIXI.Graphics();
+  var shiftMarker = new PIXI.Graphics();
+
+  var arcs = new PIXI.Graphics();
+  var nodes = [];
+
   stage.addChild(marker);
+  stage.addChild(shiftMarker);
+  stage.addChild(arcs);
+
   var lastPoint;
   var lastMidPoint;
 
-  function addNode(point) {
-    marker.drawCircle(point.x, point.y, 10);
+  function addNode(node) {
+    nodes.push(node);
+    console.log('nodes.length',nodes.length);
+    if(nodes.length > 1) {
+      drawArc();
+    }
+    marker.drawCircle(node.x, node.y, 10);
+
+  }
+
+  function drawArc() {
+    var curNode = nodes[nodes.length-1];
+    var lastNode = nodes[nodes.length-2];
+    console.log('curNode.dir',curNode.dir);
+    var left = curNode.x;
+    var radius = (curNode.x - lastNode.x) >> 1;
+    console.log('radius',radius);
+    arcs.clear().lineStyle().lineStyle(2, 0x00FFF2);
+    var flipped = (curNode.dir === 'up' && radius < 0 || curNode.dir === 'down' && radius > 0);
+    console.log('flipped',flipped);
+    arcs.arc(left - radius, curNode.y, (flipped ? -radius : radius), 0, Math.PI);
+
+    renderer.render(stage);
   }
 
   function checkLine(touch, lastTouch) {
@@ -50,15 +85,29 @@
       var m = (lastTouch.y - touch.y) / (lastTouch.x - touch.x);
       var dy =  lastTouch.y - lineCenter;
       var x_tar = (m*lastTouch.x - dy) / m;
-
       var direction = touch.y > lastTouch.y ? 'down' : 'up';
-      console.log(direction);
       if (!!x_tar) {
-        addNode({x: x_tar, y:lineCenter});
+        addNode({x: x_tar, y:lineCenter, dir: direction});
       } else {
-        addNode({x: lastTouch.x, y:lineCenter});
+        addNode({x: lastTouch.x, y:lineCenter, dir: direction});
       }
     }
+  }
+
+  function drawLine() {
+    shiftMarker.clear().beginFill(0x00FFF2);
+    shiftMarker.lineStyle(2, 0x00FFF2);
+    line.forEach(function(pt, it) {
+      if (it === 0) {
+        shiftMarker.moveTo(pt.point.x, pt.point.y);
+        shiftMarker.lineTo(pt.point.x, pt.point.y);
+      } else {
+        shiftMarker.moveTo(pt.midPoint.x, pt.midPoint.y);
+        shiftMarker.quadraticCurveTo(line[it-1].point.x, line[it-1].point.y, line[it-1].midPoint.x, line[it-1].midPoint.y);
+        shiftMarker.drawCircle(pt.midPoint.x, pt.midPoint.y, 0.4);
+      }
+    })
+    renderer.render(stage);
   }
 
   function onDragStart(event) {
@@ -66,38 +115,66 @@
     this.dragging = true;
     var point = new PIXI.Point(event.data.global.x, event.data.global.y);
     line = [];
-    marker.clear().beginFill(0xffd900);
-    marker.lineStyle(10, 0xffd900);
-    marker.moveTo(point.x, point.y);
-    marker.lineTo(point.x, point.y);
-    marker.drawCircle(point.x, point.y, 0.4);
+    nodes = [];
+    if (MARKER) {
+      marker.clear().beginFill(0xffd900);
+      marker.lineStyle(2, 0xffd900);
+      marker.moveTo(point.x, point.y);
+      marker.lineTo(point.x, point.y);
+      marker.drawCircle(point.x, point.y, 0.4);
+      renderer.render(stage);
+    }
     lastPoint = lastMidPoint = point;
-    renderer.render(stage);
-    line.push({x: point.x, y: point.y});
+    drawLine();
+    line.push({point: {x: point.x, y: point.y}, midPoint: lastMidPoint});
   }
 
   function onDragEnd(event) {
     this.dragging = false;
     this.data = null;
     marker.endFill();
+    drawLine();
     renderer.render(stage);
   }
 
+  totalDistance = 0;
+  function getDistance(point, lastPoint) {
+    totalDistance += Math.sqrt((point.x-lastPoint.x)*(point.x-lastPoint.x) + (point.y-lastPoint.y)*(point.y-lastPoint.y));
+  }
+
+  var count = 0;
   function onDragMove(event) {
-    if(this.dragging) {
-      var point = new PIXI.Point(event.data.global.x, event.data.global.y);
-      var midPoint = new PIXI.Point(lastPoint.x + point.x >> 1, lastPoint.y + point.y >> 1);
-      if (lastPoint) {
-        checkLine(point, lastPoint);
+      if(this.dragging) {
+        var point = new PIXI.Point(event.data.global.x, event.data.global.y);
+        var midPoint = new PIXI.Point(lastPoint.x + point.x >> 1, lastPoint.y + point.y >> 1);
+        if (lastPoint) {
+          getDistance(point, lastPoint);
+          checkLine(point, lastPoint);
+        }
+        if (MARKER) {
+          marker.moveTo(midPoint.x, midPoint.y);
+          marker.quadraticCurveTo(lastPoint.x, lastPoint.y, lastMidPoint.x, lastMidPoint.y);
+          marker.drawCircle(midPoint.x, midPoint.y, 0.4);
+          renderer.render(stage);
+        }
+        lastMidPoint = midPoint;
+        lastPoint = point;
+        if (SHIFT) {
+          console.log('totalDistance',totalDistance);
+          if(totalDistance > 10) {
+            totalDistance = 0;
+            line.push({point: {x: point.x, y: point.y}, midPoint: midPoint});
+          }
+          if (line.length > 50) {
+            line.shift();
+          }
+          count++;
+          if(count%2 === 0) {
+            drawLine();
+          }
+
+        }
       }
-      marker.moveTo(midPoint.x, midPoint.y);
-      marker.quadraticCurveTo(lastPoint.x, lastPoint.y, lastMidPoint.x, lastMidPoint.y);
-      marker.drawCircle(midPoint.x, midPoint.y, 0.4);
-      lastMidPoint = midPoint;
-      lastPoint = point;
-      line.push({x: point.x, y: point.y});
-      renderer.render(stage);
-    }
   }
 
   window.onresize = function(event) {
