@@ -1,6 +1,7 @@
 import '../assets/styles.scss';
 import $ from 'jquery';
 
+import { createNotes, initializeSettings, animateNote } from './animateNotes';
 import Player from './Player';
 
 /*
@@ -8,9 +9,8 @@ import Player from './Player';
  */
 
 // counterpoint
-//
 var QUANTIZE = true;
-var PORT_PLAYER = 8888;
+var TIMEOUT = false;
 
 // duplicate constants:
 var TEMPOS = {
@@ -22,84 +22,10 @@ var CANVAS_TOP = null;
 var DEFAULT_BASE_NOTE = 48;
 var STEPS = 16;
 
-var TEST_SONG = [7, 11, 9, 11, 7, 12, 10, 12];
-var TEST_SONG_HARMONY = [4, 0, 2, 0, 4, 0, 2, 0, 5, 3, 4, 3, 5, 3, 4, 3];
-var CLIMBING_SONG_1 = [0, 2, 1, 3, 2, 4, 3, 5, 4, 6, 5, 7, 6, 8, 7, 9, 8, 10, 9, 11, 10, 12, 11, 13, 12, 14];
-var CLIMBING_SONG_2 = [0, 2, 4, 6, 7, 9, 11, 13, 14];
-
 var MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
 var MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
 
 var notes = [];
-
-// create the note objects
-function createNotes(baseNote, cb) {
-  var maxWidth = window.innerWidth;
-  for (var i = 0; i < STEPS; i++) {
-    var noteWidth = maxWidth / STEPS;
-    notes[i] = {
-      id: i,
-      midi: DEFAULT_BASE_NOTE + (i < 7 ? 0 : (i > 13 ? 24 : 12)) + MINOR_SCALE[(i % MINOR_SCALE.length)],
-      left: noteWidth * i,
-      width: noteWidth,
-      height: noteWidth / 2,
-      top: noteWidth / 4,
-      center: noteWidth * i + noteWidth / 2
-    }
-  }
-  cb();
-}
-
-function renderNotes() {
-  var noteHeight;
-  $('#canvas').html(
-    (function() {
-      var notesHTML = '';
-      notes.forEach(function(note, iter) {
-        var color = parseInt((180 * (iter / STEPS) + 60)).toString(16);
-        noteHeight = note.height;
-        notesHTML += (
-          '<div ' +
-          'class="note" ' +
-          'id="' + iter + '" ' +
-          'style="' +
-          'left:' + note.left + 'px;' +
-          'top:' + note.top + 'px;' +
-          'width:' + note.width + 'px;' +
-          'height:' + note.height + 'px;' +
-          '" ' +
-          '></div>'
-        );
-      });
-      return notesHTML;
-    })()
-  );
-  $('.scale').html(
-    (function() {
-      return (
-        '<div class="scale-background"' +
-        'style="' +
-        'top:' + CANVAS_TOP + 'px;' +
-        'height:' + noteHeight + 'px;' +
-        '" ' +
-        '></div>'
-      )
-    })()
-  )
-}
-
-function initializeSettings() {
-  $('.note').css('top', CANVAS_TOP);
-}
-
-function animateNote(note, duration) {
-  // note transition
-  var activeNote = $('#' + note);
-  activeNote.addClass('active');
-  setTimeout(function() {
-    activeNote.removeClass('active');
-  }, duration);
-}
 
 $(document).ready(function() {
   CANVAS_TOP = window.innerHeight / 2;
@@ -185,8 +111,9 @@ $(document).ready(function() {
   /*
     INITIALIZE
    */
-  createNotes(DEFAULT_BASE_NOTE, renderNotes);
-  initializeSettings();
+
+  createNotes(notes, DEFAULT_BASE_NOTE, STEPS, MINOR_SCALE, CANVAS_TOP);
+  initializeSettings(CANVAS_TOP);
 
   /*
     Loop over players
@@ -203,7 +130,7 @@ $(document).ready(function() {
           players[id].player.start();
         }
         // look for inactive players every second
-        if (loopCount >= 5) {
+        if (TIMEOUT && loopCount >= 5) {
           loopCount = 0;
           // increase timeout every second
           players[id].player.timeout += 1;

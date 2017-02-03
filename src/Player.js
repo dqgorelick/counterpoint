@@ -9,7 +9,6 @@ var TEMPOS = {
   2: 800
 }
 
-var CANVAS_TOP = null;
 var CURSOR_WIDTH = 26;
 var CW = 1;
 var CCW = -1;
@@ -24,6 +23,7 @@ export default class Player {
     this.baseNote = options.baseNote || DEFAULT_BASE_NOTE;
     this.songRate = options.songRate || DEFAULT_SONG_RATE;
     this.songTempo = options.songTempo || 1;
+    this.canvasTop = options.canvasTop;
     this.mode = options.mode || MODES.song;
     this.timeout = 0;
     // socket callback
@@ -163,7 +163,7 @@ export default class Player {
     if (self.song.length > 0) {
       // play and animate note
       self.sendNote(midiNote, self.songTempo);
-      animateNote(current, 150);
+      // animateNote(current, 150);
     }
 
     // render cursor
@@ -201,7 +201,7 @@ export default class Player {
       this.cursorLeft.css('display', 'initial')
     }
     var diameter = this.rightHand.center - this.leftHand.center;
-    var top = CANVAS_TOP + this.leftHand.width / 4 - diameter / 2;
+    var top = this.canvasTop + this.leftHand.width / 4 - diameter / 2;
     var left = this.leftHand.center;
     this.jQuery.css('top', top);
     this.jQuery.css('left', left);
