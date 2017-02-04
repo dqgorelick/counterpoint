@@ -2,6 +2,7 @@ import '../assets/styles.scss';
 import $ from 'jquery';
 
 import { createNotes, initializeSettings, animateNote } from './animateNotes';
+import { triggerAttackRelease } from './soundGenerator';
 import Player from './Player';
 
 /*
@@ -20,6 +21,7 @@ var TEMPOS = {
 }
 var CANVAS_TOP = null;
 var DEFAULT_BASE_NOTE = 48;
+var DEFAULT_SONG_RATE = 450;
 var STEPS = 16;
 
 var MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
@@ -27,11 +29,33 @@ var MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
 
 var notes = [];
 
+function midi_to_freq(midi) {
+  var freq = Math.pow(2,((midi-69)/12)) * 440;
+  console.log('freq',freq);
+  return freq;
+}
+
 $(document).ready(function() {
   CANVAS_TOP = window.innerHeight / 2;
 
   var players = {};
 
+  var TEST_SONG = [7, 11, 9, 11, 7, 12, 10, 12];
+
+  var bach = new Player('bach', {
+    baseNote: DEFAULT_BASE_NOTE,
+    songRate: DEFAULT_SONG_RATE,
+    songTempo: 1,
+    canvasTop: CANVAS_TOP,
+    mode: 0,
+    song: TEST_SONG,
+    scale: MINOR_SCALE,
+    dir: 0,
+    color: '#ff0000'
+  }, triggerAttackRelease);
+  bach.start();
+
+  console.log('bach',bach);
   // view web socket
   var socket = new WebSocket('ws://localhost:8082/');
   socket.onmessage = function(evt) {
@@ -50,8 +74,7 @@ $(document).ready(function() {
           notes.push(note.midi)
         })
         players[message.id].notes = notes;
-        players[message.id].player = new Player(players[message.id].id,
-        {
+        players[message.id].player = new Player(players[message.id].id, {
           songTempo: message.tempo,
           songRate: TEMPOS[message.tempo],
           song: players[message.id].notes,
@@ -60,7 +83,7 @@ $(document).ready(function() {
         }, sendNote);
         players[message.id].player.stop();
         players[message.id].player.reset();
-        if(QUANTIZE) {
+        if (QUANTIZE) {
           players[message.id].toStart = true;
         } else {
           players[message.id].player.start();
@@ -77,7 +100,7 @@ $(document).ready(function() {
         })
         players[message.id].player.stop();
         players[message.id].player.reset();
-        if(QUANTIZE) {
+        if (QUANTIZE) {
           players[message.id].toStart = true;
         } else {
           players[message.id].player.start();
@@ -103,7 +126,7 @@ $(document).ready(function() {
   function sendNote(note, tempo) {
     // quarternote by default
     tempo = tempo || 1;
-    console.log('note',note);
+    console.log('note', note);
     // socket.send(JSON.stringify({note: note, tempo: tempo}));
   }
 
@@ -119,6 +142,7 @@ $(document).ready(function() {
     Loop over players
    */
   var loopCount = 0;
+
   function loopPlayers() {
     for (var id in players) {
       if (!!players[id]) {
@@ -152,17 +176,18 @@ $(document).ready(function() {
   }
 
   /*
-    USER INPUT
-   */
+  USER INPUT
+  */
   $('.note').on('click', function(evt) {
     var note = $(this).attr("id");
     console.log('click');
     sendNote(notes[note].midi);
   });
 
-  $('.note').hover(function(evt) {
+
+  $('.note').on('mouseenter', function(evt) {
     var note = $(this).attr("id");
+    triggerAttackRelease(midi_to_freq(notes[note].midi));
     console.log('hover');
-    sendNote(notes[note].midi);
   });
 });

@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 var DEFAULT_BASE_NOTE = 48;
 var DEFAULT_SONG_RATE = 450;
 
@@ -18,7 +20,7 @@ var STEPS = 16;
 var NOTE_DURATION = 200; // 0.2 second delay set in SuperCollider
 
 export default class Player {
-  constructor(id, options, sendNote) {
+  constructor(id, options, notes, sendNote) {
     this.id = id;
     this.baseNote = options.baseNote || DEFAULT_BASE_NOTE;
     this.songRate = options.songRate || DEFAULT_SONG_RATE;
@@ -39,6 +41,7 @@ export default class Player {
     this.toFlip = false;
     this.leftHand = null;
     this.rightHand = null;
+    this.scale = options.scale;
     this.color = '#57AA83' || options.color;
     this.states = {
       1: {
@@ -99,7 +102,7 @@ export default class Player {
       self.lastNote = current;
     }
     // get actual note mappings
-    var midiNote = (current < 7 ? 0 : (current > 13 ? 24 : 12)) + self.baseNote + MINOR_SCALE[(current) % 7];
+    var midiNote = (current < 7 ? 0 : (current > 13 ? 24 : 12)) + self.baseNote + self.scale[(current) % 7];
 
     // initial setup
     if (!self.leftHand && !self.rightHand) {
@@ -162,7 +165,7 @@ export default class Player {
 
     if (self.song.length > 0) {
       // play and animate note
-      self.sendNote(midiNote, self.songTempo);
+      self.sendNote(midiNote);
       // animateNote(current, 150);
     }
 
